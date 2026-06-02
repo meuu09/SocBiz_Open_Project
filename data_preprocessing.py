@@ -1,16 +1,16 @@
 import numpy as np
 import pandas as pd
 
-acn_data=pd.read_excel("datasets\\acndata_sessions.json.xlsx")
-adj_data=pd.read_csv("datasets\\adj.csv")
-distance_data=pd.read_csv("datasets\\distance.csv")
-duration_data=pd.read_csv("datasets\\duration.csv")
-info_data=pd.read_csv("datasets\\information.csv")
-occupancy_data=pd.read_csv("datasets\\occupancy.csv")
-price_data=pd.read_csv("datasets\\price.csv")
-stations_data=pd.read_csv("datasets\\stations.csv")
-time_data=pd.read_csv("datasets\\time.csv")
-volume_data=pd.read_csv("datasets\\volume.csv")
+acn_data=pd.read_excel("rawdatasets\\acndata_sessions.json.xlsx")
+adj_data=pd.read_csv("rawdatasets\\adj.csv")
+distance_data=pd.read_csv("rawdatasets\\distance.csv")
+duration_data=pd.read_csv("rawdatasets\\duration.csv")
+info_data=pd.read_csv("rawdatasets\\information.csv")
+occupancy_data=pd.read_csv("rawdatasets\\occupancy.csv")
+price_data=pd.read_csv("rawdatasets\\price.csv")
+stations_data=pd.read_csv("rawdatasets\\stations.csv")
+time_data=pd.read_csv("rawdatasets\\time.csv")
+volume_data=pd.read_csv("rawdatasets\\volume.csv")
 
 # check properties of the acn dataset
 print(acn_data.shape)
@@ -118,7 +118,7 @@ acn_data["energy_cost_per_kWh"]=base_tariff
 acn_data=acn_data.sort_values("connectionTime").reset_index(drop=True)
 
 # round the session time down to hours
-acn_data["hour_slot"]=acn_data["connectionTime"].dt.floor("H")
+acn_data["hour_slot"]=acn_data["connectionTime"].dt.floor("h")
 
 #make a new dataframe for each station id and hour slot and count the number of sessions in each hour slot for each station id
 queue_length=acn_data.groupby(["stationID","hour_slot"]).size().reset_index(name="queue_length_proxy")
@@ -173,3 +173,154 @@ acn_data=acn_data[[ "sessionID","stationID","siteID","spaceID","connectionTime",
 print(acn_data.isnull().sum())
 print(acn_data.head(1))
 
+#now preprocessing and aligning the urbanev datasets
+
+
+#parsing the time dataset
+
+time_data["timestamp"]=pd.to_datetime(time_data[["year","month","day","hour","minute","second"]])
+
+#indexing  rows of the time dataset (starting from 1)
+time_data["timestamp_idx"]=range(1,len(time_data)+1)
+
+time_data=time_data[["timestamp_idx","timestamp","year","month","day","hour","minute","second"]]
+print(time_data.head())
+
+#making a function to melt the datasets from wide to long format to align with the time dataset
+
+def melt_dataset(df,value_name):
+    # reaname the timestamp column to timestamp_idx to merge with time dataset
+    first_col=df.columns[0]
+    df.rename(columns={first_col:"timestamp_idx"},inplace=True)
+
+    # melt the dataset to long format
+    melted=df.melt(id_vars=["timestamp_idx"],var_name="gridID",value_name=value_name)
+    # to ensure that timestamp_idx and gridID are of integer type for merging with time dataset
+    melted["timestamp_idx"]=melted["timestamp_idx"].astype(int)
+    melted["gridID"]=melted["gridID"].astype(int)
+    return melted
+
+occupancy_long=melt_dataset(occupancy_data,"occupancy")
+price_long=melt_dataset(price_data,"price")
+duration_long=melt_dataset(duration_data,"duration")
+volume_long=melt_dataset(volume_data,"volume")
+
+# now aligning these datadets with time dataset
+aligned_df=occupancy_long.merge(price_long,on=["timestamp_idx","gridID"],how="left")
+aligned_df=aligned_df.merge(duration_long,on=["timestamp_idx","gridID"],how="left")
+aligned_df=aligned_df.merge(volume_long,on=["timestamp_idx","gridID"],how="left")
+aligned_df=aligned_df.merge(time_data[["timestamp_idx","timestamp"]],on=["timestamp_idx"],how="left")
+aligned_df=aligned_df[["timestamp_idx","timestamp","gridID","occupancy","price","duration","volume"]]
+
+
+# add geographical aspects of grids by merging information dataset
+info_data.rename(columns={"grid":"gridID"},inplace=True)
+info_data["gridID"]=info_data["gridID"].astype(int)
+aligned_df=aligned_df.merge(info_data[["gridID","count","fast_count","slow_count","area","lon","la","CBD","dynamic_pricing"]],on="gridID",how="left")
+
+
+#sort the values in chronological order
+aligned_df=aligned_df.sort_values(by=["gridID","timestamp"]).reset_index(drop=True)
+print(aligned_df.head())
+print(aligned_df.info())
+#checking for null values
+print(aligned_df.isnull().sum())
+
+
+print(aligned_df.shape)
+
+# extracting time features
+aligned_df["hour"]=aligned_df["timestamp"].dt.hour
+aligned_df['minute'] = aligned_df['timestamp'].dt.minute        
+aligned_df['day_of_week'] = aligned_df['timestamp'].dt.dayofweek    
+aligned_df['day_of_month'] = aligned_df['timestamp'].dt.day           
+aligned_df['month'] = aligned_df['timestamp'].dt.month        
+aligned_df['date'] = aligned_df['timestamp'].dt.date
+aligned_df['is_weekend'] = (aligned_df['day_of_week'] >= 5).astype(int)
+
+#group into categories based on hours
+aligned_df['time_of_day'] = pd.cut(
+    aligned_df['hour'],
+    bins=  [-1,5,11,16,21,23],
+    labels=['night', 'morning', 'afternoon', 'evening', 'late_night']
+)
+
+#we observed peak time during evening
+aligned_df["is_peak_hr"]=aligned_df["hour"].isin([18, 19, 20, 21]).astype(int)
+
+
+#creating meaningful features
+
+
+
+aligned_df["charger_util_rate"]= (aligned_df["occupancy"]/aligned_df["count"].replace(0,np.nan)).clip(0,1).fillna(0)
+print(aligned_df["charger_util_rate"].describe())
+
+
+# revenue delivered per session
+
+base_tariff=15.0 # as given in the problem statement
+
+# based on typical public AC/slow EV charging infrastructure commonly used in urban environments like Shenzhen, 7 kW can be assumed as an average charging power
+avg_charger_power=7.0
+
+#charger utilisation rate= charging time/ total time
+# for urban dataset we can consider charging time equivalent to the number of chargers occupied and total available time as the total number of chargers so
+# utilisation rate= occupied chargers/ total chargers
+aligned_df["est_kwh_per_sesssion"]=aligned_df["duration"]*avg_charger_power
+
+aligned_df["actual_price"]=base_tariff * aligned_df["price"]
+#since we are given price multipliers in the price dataset so multiplying with base tariff gives us actual price
+aligned_df["revenue_per_session"]=aligned_df["est_kwh_per_sesssion"]*aligned_df["actual_price"]
+
+
+# energy cost per kWh = actual price charged per unit of electricity
+aligned_df["energy_cost_per_kWh"]=aligned_df["actual_price"]
+
+
+#queue length proxy
+# if more sessions are demanded than chargers available then there will be a queue means if demand/supply ratio >1 then there will be queue and queue length will be demand supply ratio - 1 (i.e. max demand suply ratio)
+
+aligned_df["demand_supply_ratio"]=(aligned_df["volume"]/aligned_df["count"].replace(0,np.nan)).fillna(0)
+
+aligned_df["queue_length_proxy"]= (aligned_df["demand_supply_ratio"] - 1 ).clip(lower=0)
+
+# occupancy density = no. of chargers per km square of grid area
+
+aligned_df["occupancy_density"]=(aligned_df["occupancy"]/ aligned_df["area"].replace(0,np.nan)).fillna(0)
+
+print(aligned_df[["charger_util_rate","revenue_per_session","energy_cost_per_kWh","queue_length_proxy","occupancy_density"]].describe())
+
+# add flags for cogested areas
+aligned_df["is_congested"]=(aligned_df["charger_util_rate"]>0.80).astype(int)
+aligned_df["is_underutilized"]=(aligned_df["charger_util_rate"]<0.30).astype(int)
+
+#classify the pricing zones based on congestion 
+aligned_df["pricing_zone"]="standard"
+
+aligned_df.loc[aligned_df["is_congested"]==1,"pricing_zone"]="surge"
+aligned_df.loc[aligned_df["is_underutilized"]==1,"pricing_zone"]="discount"
+
+print(aligned_df[["is_congested"]].sum())
+print(aligned_df[["is_underutilized"]].sum())
+print((aligned_df["pricing_zone"]=="standard").sum())
+
+#make rolling demand feature for each district
+
+#for each district rolling means are calculated for 3 hr that is 36 5 min intervals
+aligned_df["rolling_3h_volume"]=(aligned_df.groupby("gridID")["volume"].transform(lambda x: x.rolling(window=36,min_periods=1).mean()))
+
+
+# calculating actual total district revenue
+aligned_df["actual_total_revenue"]=aligned_df["revenue_per_session"]*aligned_df["volume"]
+
+# calculating total revenue at base tariff 
+aligned_df["baseline_total_revenue"]=aligned_df["est_kwh_per_sesssion"]*base_tariff*aligned_df["volume"]
+
+aligned_df["actual_vs_baseline"]=aligned_df["actual_total_revenue"]-aligned_df["baseline_total_revenue"]
+
+print(aligned_df.isnull().sum())
+print(aligned_df.head())
+
+aligned_df.to_csv("final_datasets\\aligned_urbanev_data.csv",index=False)
+# too large to be uploaded to github so not uploading the final aligned dataset to github. It can be generated by running this code. The raw datasets are already uploaded to github.
