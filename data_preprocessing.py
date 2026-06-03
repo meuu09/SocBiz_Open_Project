@@ -35,15 +35,15 @@ print(acn_data.shape)
 
 #parse the timestamps to datetime format
 time_format = "%a, %d %b %Y %H:%M:%S GMT"
-acn_data['connectionTime'] = pd.to_datetime(acn_data['connectionTime'], format=time_format, errors='coerce')
-acn_data['disconnectTime']  = pd.to_datetime(acn_data['disconnectTime'], format=time_format, errors='coerce')
-acn_data['doneChargingTime']= pd.to_datetime(acn_data['doneChargingTime'],format=time_format, errors='coerce')
+acn_data["connectionTime"] = pd.to_datetime(acn_data["connectionTime"], format=time_format, errors="coerce")
+acn_data["disconnectTime"]  = pd.to_datetime(acn_data["disconnectTime"], format=time_format, errors="coerce")
+acn_data["doneChargingTime"]= pd.to_datetime(acn_data["doneChargingTime"],format=time_format, errors="coerce")
 print(acn_data.info())
 
 print(acn_data[["connectionTime","disconnectTime","doneChargingTime"]].head())
 # Drop rows where timestamp parsing failed
 print(acn_data.shape)
-acn_data.dropna(subset=['connectionTime', 'disconnectTime'], inplace=True)
+acn_data.dropna(subset=["connectionTime", "disconnectTime"], inplace=True)
 print(acn_data.shape)
 #kWhDelivered stats
 print(acn_data["kWhDelivered"].describe())
@@ -231,18 +231,18 @@ print(aligned_df.shape)
 
 # extracting time features
 aligned_df["hour"]=aligned_df["timestamp"].dt.hour
-aligned_df['minute'] = aligned_df['timestamp'].dt.minute        
-aligned_df['day_of_week'] = aligned_df['timestamp'].dt.dayofweek    
-aligned_df['day_of_month'] = aligned_df['timestamp'].dt.day           
-aligned_df['month'] = aligned_df['timestamp'].dt.month        
-aligned_df['date'] = aligned_df['timestamp'].dt.date
-aligned_df['is_weekend'] = (aligned_df['day_of_week'] >= 5).astype(int)
+aligned_df["minute"] = aligned_df["timestamp"].dt.minute        
+aligned_df["day_of_week"] = aligned_df["timestamp"].dt.dayofweek    
+aligned_df["day_of_month"] = aligned_df["timestamp"].dt.day           
+aligned_df["month"] = aligned_df["timestamp"].dt.month        
+aligned_df["date"] = aligned_df["timestamp"].dt.date
+aligned_df["is_weekend"] = (aligned_df["day_of_week"] >= 5).astype(int)
 
 #group into categories based on hours
-aligned_df['time_of_day'] = pd.cut(
-    aligned_df['hour'],
+aligned_df["time_of_day"] = pd.cut(
+    aligned_df["hour"],
     bins=  [-1,5,11,16,21,23],
-    labels=['night', 'morning', 'afternoon', 'evening', 'late_night']
+    labels=["night", "morning", "afternoon", "evening", "late_night"]
 )
 
 #we observed peak time during evening
