@@ -167,12 +167,23 @@ acn_data["user_info_available"]=(acn_data["userID"].notna()).astype(int)
 #also only some rows have user inputs like kWh requested, etc so create a flag for that as well
 acn_data["user_inputs_available"]=(acn_data["kWhRequested"].notna()).astype(int)
 
+#feature for pricing efficiency score - revenue earned per kW Delivered
+acn_data["revenue_per_kWh"]=acn_data["revenue_per_session"]/acn_data["kWhDelivered"]
+
+#feature for customer response rate- price elasticity that is how demand changes with price...we can use session durationa s a sensitivuty metric
+# long sessions implies user is less price sensitive
+#short duration of session implies more price sensitive users
+acn_data["price_sensitivity"]= 1/ acn_data["session_duration_hr"].replace(0,np.nan)
+acn_data["price_sensitivity"]=acn_data["price_sensitivity"].clip(0,5).fillna(0)
+
+
 print(acn_data.info())
 
-acn_data=acn_data[[ "sessionID","stationID","siteID","spaceID","connectionTime","disconnectTime","doneChargingTime","kWhDelivered","session_duration_hr","charging_duration_hr","idle_time_hr","charger_util_rate","revenue_per_session","energy_cost_per_kWh","hour_slot","queue_length_proxy","isCongested","daily_sessions","occupancy_density","idle_opportunity_cost","date","hour_of_day","day_of_week","month","is_weekend","is_peak_hour","time_of_day","user_info_available","userID","user_inputs_available","WhPerMile","kWhRequested","milesRequested","minutesAvailable","requestedDeparture"]]
+acn_data=acn_data[[ "sessionID","stationID","siteID","spaceID","connectionTime","disconnectTime","doneChargingTime","kWhDelivered","revenue_per_kWh","session_duration_hr","charging_duration_hr","idle_time_hr","charger_util_rate","revenue_per_session","energy_cost_per_kWh","hour_slot","queue_length_proxy","isCongested","daily_sessions","occupancy_density","idle_opportunity_cost","date","hour_of_day","day_of_week","month","is_weekend","is_peak_hour","time_of_day","user_info_available","userID","user_inputs_available","WhPerMile","kWhRequested","milesRequested","minutesAvailable","requestedDeparture"]]
 print(acn_data.isnull().sum())
 print(acn_data.head(1))
 
+acn_data.to_csv("final_datasets\\acn_preprocessed.csv",index=False)
 #now preprocessing and aligning the urbanev datasets
 
 

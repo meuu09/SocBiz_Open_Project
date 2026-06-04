@@ -4,7 +4,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
-acn_preprocessed=pd.read_csv("final_datasets\\final_acn_data.csv")
+acn_preprocessed=pd.read_csv("final_datasets\\acn_preprocessed.csv")
 urbanev_preprocessed=pd.read_csv("final_datasets\\aligned_urbanev_data.csv")
 
 #set colours for eda
@@ -152,6 +152,15 @@ plt.ylabel("sessions")
 plt.legend()
 plt.show()
 
+#plot to see pricing efficiency score by hour
+eff_by_hour=acn_preprocessed.groupby("hour_of_day")["revenue_per_kWh"].sum().reset_index(name="revenue_per_kWh")
+plt.figure(figsize=(10,5))
+plt.bar(eff_by_hour["hour_of_day"],eff_by_hour["revenue_per_kWh"])
+plt.xlabel("hour of day")
+plt.xticks(range(24))
+plt.ylabel("revenue_per_kWh")
+plt.title("Price efficiency score")
+plt.show()
 
 # EDA for Urban ev data 
 
@@ -227,7 +236,7 @@ plt.ylabel("mean utilisation rate")
 plt.legend()
 plt.show()
 
-#plots to show difference between utilization rates and revenue between districts having synamic pricing and those having static pricing
+#plots to show difference between utilization rates and revenue between grids having synamic pricing and those having static pricing
 
 dynamic_hourly_util=urbanev_preprocessed[urbanev_preprocessed["dynamic_pricing"]==1].groupby("hour")["charger_util_rate"].mean()
 static_hourly_util=urbanev_preprocessed[urbanev_preprocessed["dynamic_pricing"]==0].groupby("hour")["charger_util_rate"].mean()
@@ -237,9 +246,9 @@ static_revenue=urbanev_preprocessed[urbanev_preprocessed["dynamic_pricing"]==0].
 
 #for utilisation rates
 plt.figure(figsize=(10,5))
-plt.plot(dynamic_hourly_util.index,dynamic_hourly_util.values,color=colors["surge"],linewidth=2.5, label="Dynamic pricing districts")
-plt.plot(static_hourly_util.index,static_hourly_util.values,color=colors["standard"],linewidth=2.5, label="Static pricing districts")
-plt.title("Charger Utilization Rate in Dynamic vs Static pricing districts")
+plt.plot(dynamic_hourly_util.index,dynamic_hourly_util.values,color=colors["surge"],linewidth=2.5, label="Dynamic pricing grids")
+plt.plot(static_hourly_util.index,static_hourly_util.values,color=colors["standard"],linewidth=2.5, label="Static pricing grids")
+plt.title("Charger Utilization Rate in Dynamic vs Static pricing grids")
 plt.xlabel("hour")
 plt.ylabel("mean utilization rate")
 plt.legend()
@@ -247,15 +256,15 @@ plt.show()
 
 #for revenue
 plt.figure(figsize=(10,5))
-plt.plot(dynamic_revenue.index,dynamic_revenue.values,color=colors["surge"],linewidth=2.5, label="Dynamic pricing districts")
-plt.plot(static_revenue.index,static_revenue.values,color=colors["standard"],linewidth=2.5, label="Static pricing districts")
-plt.title("Revenue in Dynamic vs Static pricing districts")
+plt.plot(dynamic_revenue.index,dynamic_revenue.values,color=colors["surge"],linewidth=2.5, label="Dynamic pricing grids")
+plt.plot(static_revenue.index,static_revenue.values,color=colors["standard"],linewidth=2.5, label="Static pricing grids")
+plt.title("Revenue in Dynamic vs Static pricing grids")
 plt.xlabel("hour")
 plt.ylabel("mean revenue")
 plt.legend()
 plt.show()
 
-# per hour revenue comparison between districts with dynamic and the ones with static pricing
+# per hour revenue comparison between grids with dynamic and the ones with static pricing
 revenue_by_hour = urbanev_preprocessed.groupby("hour").agg(
     dynamic_rev = ("actual_total_revenue","sum"),
     base_rev = ("baseline_total_revenue","sum")
@@ -273,7 +282,7 @@ revenue_by_hour["revenue_gain_perct"] = (
 plt.figure(figsize=(10,5))
 plt.plot(revenue_by_hour["hour"], revenue_by_hour["base_rev"] / 1e6, color=colors["standard"], linewidth=2.5, label="Static pricing")
 plt.plot(revenue_by_hour["hour"], revenue_by_hour["dynamic_rev"] / 1e6, color=colors["surge"], linewidth=2.5,  label="Dynamic pricing")
-plt.title("Revenue by hour Dynamic vs Static pricing districts")
+plt.title("Revenue by hour Dynamic vs Static pricing grids")
 plt.xlabel("hour")
 plt.xticks(range(24))
 plt.ylabel("revenue")
@@ -281,14 +290,14 @@ plt.legend()
 plt.show()
 print(urbanev_preprocessed["is_congested"].sum())
 print(urbanev_preprocessed["is_underutilized"].sum())
-# we see revenue for dynamic pricing is less than for static pricing because the number of underutilized districts is more than congested ones
+# we see revenue for dynamic pricing is less than for static pricing because the number of underutilized grids is more than congested ones
 #plot for %gain or loss per hour
 
 colors_bar = [colors["surge"] if v >= 0 else colors["discount"] for v in revenue_by_hour["revenue_gain_perct"]]
 plt.figure(figsize=(10,5))
 plt.bar(revenue_by_hour["hour"],revenue_by_hour["revenue_gain_perct"],color=colors_bar,edgecolor="white")
 plt.axhline(0,color="black", linewidth=1)
-plt.title("Revenue %gain or loss by hour Dynamic vs Static pricing districts")
+plt.title("Revenue %gain or loss by hour Dynamic vs Static pricing grids")
 plt.xlabel("hour")
 plt.xticks(range(24))
 plt.ylabel("revenue gain%")
@@ -368,11 +377,11 @@ plt.show()
 
 #plot to see queue length proxy by hours
 
-queue_by_hour = urbanev_preprocessed.groupby('hour')['queue_length_proxy'].mean()
+queue_by_hour = urbanev_preprocessed.groupby("hour")["queue_length_proxy"].mean()
 plt.figure(figsize=(10,5))
-bar_colors = [colors['surge'] if v > queue_by_hour.mean() else colors['standard'] for v in queue_by_hour.values]
-plt.bar(queue_by_hour.index, queue_by_hour.values, color=bar_colors, edgecolor='white')
-plt.axhline(queue_by_hour.mean(), color='black', linestyle='--', linewidth=1.5,label='Mean queue proxy')
+bar_colors = [colors["surge"] if v > queue_by_hour.mean() else colors["standard"] for v in queue_by_hour.values]
+plt.bar(queue_by_hour.index, queue_by_hour.values, color=bar_colors, edgecolor="white")
+plt.axhline(queue_by_hour.mean(), color="black", linestyle="--", linewidth=1.5,label="Mean queue proxy")
 plt.title("queue length proxy by hour")
 plt.xlabel("hour of day")
 plt.xticks(range(24))
@@ -383,19 +392,19 @@ plt.show()
 #plot to see range of price multiplier
 
 plt.figure(figsize=(10,5))
-n, bins, patches = plt.hist(urbanev_preprocessed['price'], bins=60,edgecolor='white')
+n, bins, patches = plt.hist(urbanev_preprocessed["price"], bins=60,edgecolor="white")
 
 for patch, left in zip(patches, bins[:-1]):
     if left < 0.80:   
-        patch.set_facecolor(colors['discount'])
+        patch.set_facecolor(colors["discount"])
     elif left > 1.10:
-        patch.set_facecolor(colors['surge'])
+        patch.set_facecolor(colors["surge"])
     else:
-        patch.set_facecolor(colors['standard'])
+        patch.set_facecolor(colors["standard"])
 
-plt.axvline(1.0, color='black',linestyle='-',  linewidth=2,  label='Base (₹15.00/kWh multiplier=1.0)')
-plt.axvline(0.25,color=colors['discount'],linestyle='--', linewidth=1.5,label='Min observed: ×0.25 = ₹3.75/kWh')
-plt.axvline(1.47,color=colors['surge'], linestyle='--', linewidth=1.5,label='Max observed: ×1.47 = ₹22.05/kWh')
+plt.axvline(1.0, color="black",linestyle="-",  linewidth=2,  label="Base (₹15.00/kWh multiplier=1.0)")
+plt.axvline(0.25,color=colors["discount"],linestyle="--", linewidth=1.5,label="Min observed: ×0.25 = ₹3.75/kWh")
+plt.axvline(1.47,color=colors["surge"], linestyle="--", linewidth=1.5,label="Max observed: ×1.47 = ₹22.05/kWh")
 plt.title("Distribution of Price Multipliers")
 plt.xlabel("Price Multiplier")
 plt.ylabel("Frequency")
