@@ -15,12 +15,12 @@ colors={"surge":"#E63946",
 
 # EDA for acn data
 #plot to see number of sessions by hour of day and see what are peak hours
-sessions_by_hrs=acn_preprocessed.groupby("hour_of_day").size().reset_index(name="sessions")
+sessions_by_hrs=acn_preprocessed.groupby("hour").size().reset_index(name="sessions")
 
 print(sessions_by_hrs.head())
 
 plt.figure(figsize=(12,5))
-plt.bar(sessions_by_hrs["hour_of_day"], sessions_by_hrs["sessions"])
+plt.bar(sessions_by_hrs["hour"], sessions_by_hrs["sessions"])
 plt.xlabel("Hour of Day")
 plt.ylabel("Number of Sessions")
 plt.title("Charging Sessions by Hour")
@@ -34,14 +34,14 @@ bar_colors=[
     colors["surge"] if h in [14,15,16,17]
     else colors["discount"] if h in [4,5,6,7,8,9,10,11,12,13]
     else colors["standard"]
-    for h in sessions_by_hrs["hour_of_day"]
+    for h in sessions_by_hrs["hour"]
 ]
 surge_patch=patches.Patch(color="red",label="surge hours")
 discount_patch=patches.Patch(color="green",label="discount hours")
 standard_patch=patches.Patch(color="blue",label="standard hours")
 
 plt.figure(figsize=(12,5))
-plt.bar(sessions_by_hrs["hour_of_day"],sessions_by_hrs["sessions"],color=bar_colors,width=0.5,)
+plt.bar(sessions_by_hrs["hour"],sessions_by_hrs["sessions"],color=bar_colors,width=0.5,)
 plt.xlabel("hour of day")
 plt.ylabel("number of sessions")
 plt.title("classifying hours by number of sessions")
@@ -152,15 +152,41 @@ plt.ylabel("sessions")
 plt.legend()
 plt.show()
 
-#plot to see pricing efficiency score by hour
-eff_by_hour=acn_preprocessed.groupby("hour_of_day")["revenue_per_kWh"].sum().reset_index(name="revenue_per_kWh")
+#plot to see pricing efficiency score at baseline price price by hour
+eff_by_hour=acn_preprocessed.groupby("hour")["revenue_per_kWh"].sum().reset_index(name="revenue_per_kWh")
+
+
 plt.figure(figsize=(10,5))
-plt.bar(eff_by_hour["hour_of_day"],eff_by_hour["revenue_per_kWh"])
+plt.bar(eff_by_hour["hour"],eff_by_hour["revenue_per_kWh"],edgecolor='white')
 plt.xlabel("hour of day")
 plt.xticks(range(24))
 plt.ylabel("revenue_per_kWh")
 plt.title("Price efficiency score")
+plt.legend()
 plt.show()
+
+# make plot for price sensitivity distribution
+plt.hist(acn_preprocessed["price_sensitivity"].clip(0, 4), bins=40, edgecolor='white', alpha=0.85)
+plt.axvline(acn_preprocessed['price_sensitivity'].mean(), color="black",linestyle='--', linewidth=2,
+label=f"Mean price senstivity")
+plt.xlabel("Price Sensitivity Score")
+plt.ylabel("Sessions")
+plt.title("Price Sensitivity Distribution")
+plt.legend()
+plt.show()
+
+#price sensitivity by time of day
+sensitivity_by_tod = acn_preprocessed.groupby('time_of_day', observed=True)['price_sensitivity'].mean()
+tod_order = ['night','morning','afternoon','evening','late_night']
+sensitivity_by_tod = sensitivity_by_tod.reindex([t for t in tod_order if t in sensitivity_by_tod.index])
+plt.bar(tod_order, sensitivity_by_tod.values, edgecolor='white')
+plt.xlabel("'Time of Day")
+plt.xticks(range(len(sensitivity_by_tod)))
+plt.ylabel("Mean Price Sensitivity")
+plt.title("Price Sensitivity by Time of Day")
+plt.legend()
+plt.show()
+
 
 # EDA for Urban ev data 
 

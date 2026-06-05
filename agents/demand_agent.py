@@ -39,7 +39,7 @@ class DemandAgent(BaseAgent):
 #make the think function in which we will make main model
     def think(self):
         data = self.short_term_memory["data"].copy()
-        required = [self.feature_columns] + [self.target_column]
+        required = self.feature_columns + [self.target_column]
         data = data.dropna(subset=required)
 
 #now split the data into train and test data
@@ -58,16 +58,58 @@ class DemandAgent(BaseAgent):
         r2 = r2_score(y_test,pred)
 
         metrics = {"RMSE": round(rmse,4), "MAE": round(mae,4), "R2": round(r2,4)}
-
+# add shap for explanation of role of features
+        self.compute_shap(X_test, y_test)
 # Save everything to memory
         self.remember("last_metrics", metrics)
         self._save_model()
 
 #store the test results
-        self.short_term_memory["X_test"]  = X_test
-        self.short_term_memory["y_test"]  = y_test
+        self.short_term_memory["X_test"] = X_test
+        self.short_term_memory["y_test"] = y_test
         self.short_term_memory["metrics"] = metrics
-        
+
+
+#make function to find shap
+    def compute_shap(self, X_test, y_test):
+        try:
+            import shap
+            import matplotlib.pyplot as plt
+            import matplotlib
+            matplotlib.use('Agg')
+            os.makedirs("outputs", exist_ok=True)
+            os.makedirs("plots",exist_ok=True)
+#SHAP is slow on large sets so use a sample of 500 rows only
+            sample_size = min(500, len(X_test))
+            X_sample = X_test.sample(sample_size, random_state=42)
+
+            explainer   = shap.TreeExplainer(self.model)
+            shap_values = explainer.shap_values(X_sample)
+
+            #mean absolute shap values
+            shap_importance = pd.DataFrame({'feature': X_sample.columns.tolist(),'mean_abs_shap': np.abs(shap_values).mean(axis=0)
+            }).sort_values('mean_abs_shap', ascending=False)
+ 
+            shap_importance.to_csv("outputs/shap_importance.csv", index=False)
+
+# make bar plot to compare importance of features
+            plt.barh(shap_importance['feature'][::-1],shap_importance['mean_abs_shap'][::-1],edgecolor='white')   
+            plt.title("Shap feature importance (Mean absolute impact on charger_util_rate prediction)")   
+            plt.xlabel("mean SHAP values")
+            plt.ylabel("features")
+            plt.savefig("plots/shap_feature_importance.png", dpi=150)
+            plt.close()
+
+        except ImportError:
+            print("[DemandAgent] SHAP is not installed. Run: pip install shap")
+
+        except Exception as e:
+            print(f"[DemandAgent] SHAP skipped: {e}")    
+
+
+            
+
+
 #make act function
     def act(self):
         data = self.short_term_memory["data"].copy()
@@ -80,7 +122,14 @@ class DemandAgent(BaseAgent):
         data["is_discount_zone"] = (data["predicted_util"] < 0.30).astype(float)
 
 #make demand signal to be given to pricing agent
-        demand_signal = data.groupby("gridID").agg(mean_predicted_util = ("predicted_util","mean"),max_predicted_util = ("predicted_util", "max"),congestion_prob = ("congestion_prob","mean"),discount_prob = ("is_discount_zone","mean"),total_volume = ("volume",           "sum"),is_CBD = ("CBD","first"),has_dynamic_pricing= ("dynamic_pricing","first"),total_chargers = ("count","first")).reset_index()
+        demand_signal = data.groupby("gridID","hour").agg(
+            mean_predicted_util = ("predicted_util","mean"),
+            max_predicted_util = ("predicted_util", "max"),
+            congestion_prob = ("congestion_prob","mean"),
+            discount_prob = ("is_discount_zone","mean"),
+            total_volume = ("volume","sum"),
+            is_CBD = ("CBD","first"),has_dynamic_pricing= ("dynamic_pricing","first"),
+            total_chargers = ("count","first")).reset_index()
 
 # determine the price zone
         demand_signal["pricing_recommendation"]="standard"

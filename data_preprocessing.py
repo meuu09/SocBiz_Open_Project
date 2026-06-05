@@ -149,17 +149,17 @@ avg_kwh_per_hr=mean_kWh_delivered/mean_session_duration_hr
 acn_data["idle_opportunity_cost"]=acn_data["idle_time_hr"]*avg_kwh_per_hr*base_tariff
 
 # create time features to see when the demand is high or low
-acn_data["hour_of_day"]=acn_data["connectionTime"].dt.hour
+acn_data["hour"]=acn_data["connectionTime"].dt.hour
 acn_data["date"]=acn_data["connectionTime"].dt.date
 acn_data["day_of_week"]=acn_data["connectionTime"].dt.dayofweek
 acn_data["month"]=acn_data["connectionTime"].dt.month
 acn_data["is_weekend"]=(acn_data["day_of_week"]>=5).astype(int)
 
 #from data we observed that demand is higher after noon
-acn_data["is_peak_hour"]=((acn_data["hour_of_day"].isin([13,14,15,16,17]))).astype(int)
+acn_data["is_peak_hour"]=((acn_data["hour"].isin([13,14,15,16,17]))).astype(int)
 
 # group hours into 5 categories night (0-5), morning (6-11), afternoon (12-16), evening (17-21), late night (22-23)
-acn_data["time_of_day"]=pd.cut(acn_data["hour_of_day"], bins=[-1,5,11,16,21,23], labels=["night","morning","afternoon","evening","late_night"])
+acn_data["time_of_day"]=pd.cut(acn_data["hour"], bins=[-1,5,11,16,21,23], labels=["night","morning","afternoon","evening","late_night"])
 
 #we have user info only in some rows that can be used in analysis. so create a flag to indicate if user info is available
 acn_data["user_info_available"]=(acn_data["userID"].notna()).astype(int)
@@ -179,7 +179,7 @@ acn_data["price_sensitivity"]=acn_data["price_sensitivity"].clip(0,5).fillna(0)
 
 print(acn_data.info())
 
-acn_data=acn_data[[ "sessionID","stationID","siteID","spaceID","connectionTime","disconnectTime","doneChargingTime","kWhDelivered","revenue_per_kWh","session_duration_hr","charging_duration_hr","idle_time_hr","charger_util_rate","revenue_per_session","energy_cost_per_kWh","hour_slot","queue_length_proxy","isCongested","daily_sessions","occupancy_density","idle_opportunity_cost","date","hour_of_day","day_of_week","month","is_weekend","is_peak_hour","time_of_day","user_info_available","userID","user_inputs_available","WhPerMile","kWhRequested","milesRequested","minutesAvailable","requestedDeparture"]]
+acn_data=acn_data[[ "sessionID","stationID","siteID","spaceID","connectionTime","disconnectTime","doneChargingTime","kWhDelivered","revenue_per_kWh","session_duration_hr","charging_duration_hr","idle_time_hr","charger_util_rate","revenue_per_session","energy_cost_per_kWh","hour_slot","queue_length_proxy","isCongested","daily_sessions","occupancy_density","idle_opportunity_cost","date","hour","day_of_week","month","is_weekend","is_peak_hour","time_of_day","user_info_available","userID","user_inputs_available","WhPerMile","kWhRequested","milesRequested","minutesAvailable","requestedDeparture","price_sensitivity"]]
 print(acn_data.isnull().sum())
 print(acn_data.head(1))
 
@@ -316,13 +316,13 @@ print(aligned_df[["is_congested"]].sum())
 print(aligned_df[["is_underutilized"]].sum())
 print((aligned_df["pricing_zone"]=="standard").sum())
 
-#make rolling demand feature for each district
+#make rolling demand feature for each grid
 
-#for each district rolling means are calculated for 3 hr that is 36 5 min intervals
+#for each grid rolling means are calculated for 3 hr that is 36 5 min intervals
 aligned_df["rolling_3h_volume"]=(aligned_df.groupby("gridID")["volume"].transform(lambda x: x.rolling(window=36,min_periods=1).mean()))
 
 
-# calculating actual total district revenue
+# calculating actual total grid revenue
 aligned_df["actual_total_revenue"]=aligned_df["revenue_per_session"]*aligned_df["volume"]
 
 # calculating total revenue at base tariff 
