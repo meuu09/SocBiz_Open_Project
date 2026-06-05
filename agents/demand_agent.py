@@ -122,7 +122,7 @@ class DemandAgent(BaseAgent):
         data["is_discount_zone"] = (data["predicted_util"] < 0.30).astype(float)
 
 #make demand signal to be given to pricing agent
-        demand_signal = data.groupby("gridID","hour").agg(
+        demand_signal = data.groupby(["gridID","hour"]).agg(
             mean_predicted_util = ("predicted_util","mean"),
             max_predicted_util = ("predicted_util", "max"),
             congestion_prob = ("congestion_prob","mean"),
@@ -137,7 +137,7 @@ class DemandAgent(BaseAgent):
         demand_signal.loc[demand_signal["discount_prob"]> 0.6, "pricing_recommendation"] = "discount"
 # Save predictions for output
         os.makedirs("outputs", exist_ok=True)
-        data[["gridID","datetime","charger_util_rate","predicted_util","congestion_prob"]].to_csv("outputs/demand_predictions.csv", index=False)
+        data[["gridID","timestamp","charger_util_rate","predicted_util","congestion_prob"]].to_csv("outputs/demand_predictions.csv", index=False)
 
         self.log("predict_demand",f"grids={len(demand_signal)}",f"mean_util={demand_signal["mean_predicted_util"].mean():.3f}",reward=None)
          

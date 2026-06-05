@@ -176,7 +176,7 @@ class PricingAgent(BaseAgent):
                 'congestion_prob': round(row['congestion_prob'], 4),
                 'discount_prob': round(row['discount_prob'], 4),})   
 
-            self.short_term_memory['decisions'] = pd.DataFrame(decisions)  
+        self.short_term_memory['decisions'] = pd.DataFrame(decisions)  
 
 #now make the act function
     def act(self):
