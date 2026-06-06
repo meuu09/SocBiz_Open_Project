@@ -1,0 +1,12 @@
+feature,mean_abs_shap
+count,0.071927145
+occupancy_density,0.07131268
+rolling_3h_volume,0.05442918
+fast_count,0.007784957
+CBD,0.004941052
+dynamic_pricing,0.0041641663
+queue_length_proxy,0.0035058248
+hour,0.002785342
+day_of_week,0.00060161046
+is_peak_hr,0.0004738329
+is_weekend,9.4380375e-05

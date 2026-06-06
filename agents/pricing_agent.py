@@ -14,7 +14,7 @@ class PricingAgent(BaseAgent):
     DISCOUNT_THRESHOLD = 0.30
     #mean baseline revenue and kwh delivered calculated form acn datset
     ACN_BASELINE_REVENUE = 134.14 
-    ACN_AVG_KWH          = 9.0
+    ACN_AVG_KWH = 9.0
 
     def __init__(self):
         super().__init__("pricing_agent")
@@ -45,11 +45,14 @@ class PricingAgent(BaseAgent):
         # q values is score given to each tariff value for each category depending on its correctness
         #action count is number of times that tariff option is used
 
-        else: #if q values not already existing set q values and action counts for all categories = 0
-            bins = ['very_low','low', 'medium', 'high','very_high']
-            self.q_values = {b: {str(t): 0.0 for t in self.TARIFF_OPTIONS} for b in bins}
-            self.action_counts = {b: {str(t): 0 for t in self.TARIFF_OPTIONS} for b in bins
-            }
+        else: #if q values not already existing set suitable q values and action counts for all categories depending upon the different zones
+            self.q_values = {'very_low': {'8': 0.3, '10': 0.4, '12': 0.5, '15': 0.3, '18': 0.1, '21': 0.0, '24': 0.0},
+            'low': {'8': 0.2, '10': 0.3, '12': 0.4, '15': 0.4, '18': 0.2, '21': 0.1, '24': 0.0},
+            'medium': {'8': 0.0, '10': 0.1, '12': 0.2, '15': 0.5, '18': 0.2, '21': 0.1, '24': 0.0},
+            'high':{'8': 0.0, '10': 0.0, '12': 0.1, '15': 0.2, '18': 0.5, '21': 0.4, '24': 0.3},
+            'very_high': {'8': 0.0, '10': 0.0, '12': 0.0, '15': 0.1, '18': 0.3, '21': 0.5, '24': 0.6},}
+            self.action_counts = {b: {str(t): 0 for t in self.TARIFF_OPTIONS} for b in self.q_values}
+
 #make function to define categories or bins
     def util_to_bin(self, util):
         if util < 0.20:
@@ -63,16 +66,20 @@ class PricingAgent(BaseAgent):
         else:             
             return 'very_high'
         
-#make function to select tariff value by greedy epsilon algorithm
+#make function to select tariff value 
     def select_tariff(self, util_bin):
     
-        # Epsilon-greedy selection:
-        # 15% → random tariff (explore new options)
-        # 85% → tariff with highest q value (exploit what works)
+        if util_bin in ('very_high','high'):
+            valid_tariffs = [15, 18, 21, 24]
+        elif util_bin in ('very_low', 'low'):
+            valid_tariffs = [8, 10, 12, 15]    # discount zone → only standard or below
+        else:
+            valid_tariffs = self.TARIFF_OPTIONS
         if np.random.rand() < self.epsilon:
-            return float(np.random.choice(self.TARIFF_OPTIONS))
+            return float(np.random.choice(valid_tariffs))
         q = self.q_values[util_bin]
-        return float(max(q, key=q.get))
+        bestq = max(valid_tariffs, key=lambda t: q[str(t)])
+        return float(bestq)
 
 #function to update q value
     def update_q_value(self,util_bin,tariff, reward, alpha=0.1):
@@ -84,11 +91,10 @@ class PricingAgent(BaseAgent):
             self.action_counts[util_bin][t] += 1
             old_q = self.q_values[util_bin][t]
             self.q_values[util_bin][t] = old_q + alpha * (reward - old_q)
-            self.remember('q_values',self.q_values)
-            self.remember('action_counts',self.action_counts)
+            
            
 # make the revenue prediction model from acn dataset
-    def revenue_model(self, acn_df: pd.DataFrame):
+    def train_revenue_model(self, acn_df: pd.DataFrame):
         feature_cols = ['hour','session_duration_hr', 'charging_duration_hr','is_peak_hour', 'is_weekend', 'charger_util_rate','queue_length_proxy', 'idle_time_hr', 'day_of_week']    
 
         target_col = 'revenue_per_session'
@@ -105,7 +111,7 @@ class PricingAgent(BaseAgent):
         self.revenue_model.fit(X_train, y_train,eval_set=[(X_test, y_test)],verbose=False)
 
         pred = self.revenue_model.predict(X_test)
-        rmse  = np.sqrt(mean_squared_error(y_test, pred))
+        rmse= np.sqrt(mean_squared_error(y_test, pred))
         r2 = r2_score(y_test, pred)
 
         self.remember('revenue_model_metrics',{'RMSE': round(rmse, 2), 'R2': round(r2, 4)})
@@ -137,7 +143,7 @@ class PricingAgent(BaseAgent):
             util_bin = self.util_to_bin(util)
             hour = int(row['hour']) 
   
-            predicted_rev_this_hour = self.revenue_by_hour.get(hour, self.ACN_BASELINE_REVENUE)
+            predicted_rev_this_hour = self.revenue_by_hour.get(str(hour), self.ACN_BASELINE_REVENUE)
 
             bandit_tariff = self.select_tariff(util_bin)
 
@@ -163,6 +169,7 @@ class PricingAgent(BaseAgent):
 
             decisions.append({
                 'gridID':row['gridID'],
+                "hour":int(row["hour"]),
                 'predicted_util': round(util, 4),
                 'util_bin': util_bin,
                 'pricing_action': action,
@@ -206,7 +213,7 @@ class PricingAgent(BaseAgent):
         d['in_discount_zone']  = (d['predicted_util'] < self.DISCOUNT_THRESHOLD).astype(int)
 
         total_bandit = d['bandit_total_revenue'].sum()
-        total_base   = d['base_total_revenue'].sum()
+        total_base = d['base_total_revenue'].sum()
         overall_gain = ((total_bandit - total_base) /total_base * 100
             if total_base > 0 else 0)
         

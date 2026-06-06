@@ -14,8 +14,7 @@ class DemandAgent(BaseAgent):
         super().__init__("demand_agent")
         self.feature_columns = ["hour","day_of_week","is_weekend", "is_peak_hr","CBD", "dynamic_pricing","count", "fast_count","rolling_3h_volume", "occupancy_density", "queue_length_proxy"]
         self.target_column = "charger_util_rate"
-
-        self.model      = None
+        self.model = None
         self.model_path = "memory/demand_model.pkl"
         self.load_model()
 
@@ -27,7 +26,7 @@ class DemandAgent(BaseAgent):
                 self.model = pickle.load(f)
     
 # save the loaded model    
-    def _save_model(self):
+    def save_model(self):
         with open(self.model_path, "wb") as f:
             pickle.dump(self.model, f)
 
@@ -38,6 +37,9 @@ class DemandAgent(BaseAgent):
 
 #make the think function in which we will make main model
     def think(self):
+        if self.model is not None:
+              print("[DemandAgent] Using existing trained model (no retrain)")
+              return
         data = self.short_term_memory["data"].copy()
         required = self.feature_columns + [self.target_column]
         data = data.dropna(subset=required)
@@ -59,10 +61,10 @@ class DemandAgent(BaseAgent):
 
         metrics = {"RMSE": round(rmse,4), "MAE": round(mae,4), "R2": round(r2,4)}
 # add shap for explanation of role of features
-        self.compute_shap(X_test, y_test)
+        self.compute_shap(X_test)
 # Save everything to memory
         self.remember("last_metrics", metrics)
-        self._save_model()
+        self.save_model()
 
 #store the test results
         self.short_term_memory["X_test"] = X_test
@@ -71,7 +73,7 @@ class DemandAgent(BaseAgent):
 
 
 #make function to find shap
-    def compute_shap(self, X_test, y_test):
+    def compute_shap(self, X_test):
         try:
             import shap
             import matplotlib.pyplot as plt
@@ -83,7 +85,7 @@ class DemandAgent(BaseAgent):
             sample_size = min(500, len(X_test))
             X_sample = X_test.sample(sample_size, random_state=42)
 
-            explainer   = shap.TreeExplainer(self.model)
+            explainer = shap.TreeExplainer(self.model)
             shap_values = explainer.shap_values(X_sample)
 
             #mean absolute shap values
@@ -139,7 +141,7 @@ class DemandAgent(BaseAgent):
         os.makedirs("outputs", exist_ok=True)
         data[["gridID","timestamp","charger_util_rate","predicted_util","congestion_prob"]].to_csv("outputs/demand_predictions.csv", index=False)
 
-        self.log("predict_demand",f"grids={len(demand_signal)}",f"mean_util={demand_signal["mean_predicted_util"].mean():.3f}",reward=None)
+        self.log("predict_demand",f"grids={len(demand_signal)}",f"mean_util={demand_signal['mean_predicted_util'].mean():.3f}",reward=None)
          
         self.short_term_memory['demand_signal'] = demand_signal
 

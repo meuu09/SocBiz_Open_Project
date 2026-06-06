@@ -36,7 +36,7 @@ print(acn_data.shape)
 #parse the timestamps to datetime format
 time_format = "%a, %d %b %Y %H:%M:%S GMT"
 acn_data["connectionTime"] = pd.to_datetime(acn_data["connectionTime"], format=time_format, errors="coerce")
-acn_data["disconnectTime"]  = pd.to_datetime(acn_data["disconnectTime"], format=time_format, errors="coerce")
+acn_data["disconnectTime"]= pd.to_datetime(acn_data["disconnectTime"], format=time_format, errors="coerce")
 acn_data["doneChargingTime"]= pd.to_datetime(acn_data["doneChargingTime"],format=time_format, errors="coerce")
 print(acn_data.info())
 
@@ -47,9 +47,9 @@ acn_data.dropna(subset=["connectionTime", "disconnectTime"], inplace=True)
 print(acn_data.shape)
 #kWhDelivered stats
 print(acn_data["kWhDelivered"].describe())
-#mean         9.002466
-# min          0.501000
-# max         69.373000
+#mean- 9.002466
+# min- 0.501000
+# max- 69.373000
 
 #calculating total time duaration for each session
 acn_data["session_duration_hr"]=(acn_data["disconnectTime"]-acn_data["connectionTime"]).dt.total_seconds()/3600
@@ -183,7 +183,7 @@ acn_data=acn_data[[ "sessionID","stationID","siteID","spaceID","connectionTime",
 print(acn_data.isnull().sum())
 print(acn_data.head(1))
 
-acn_data.to_csv("final_datasets\\acn_preprocessed.csv",index=False)
+acn_data.to_csv("final_datasets\\acn_processed.csv",index=False)
 #now preprocessing and aligning the urbanev datasets
 
 
@@ -250,11 +250,7 @@ aligned_df["date"] = aligned_df["timestamp"].dt.date
 aligned_df["is_weekend"] = (aligned_df["day_of_week"] >= 5).astype(int)
 
 #group into categories based on hours
-aligned_df["time_of_day"] = pd.cut(
-    aligned_df["hour"],
-    bins=  [-1,5,11,16,21,23],
-    labels=["night", "morning", "afternoon", "evening", "late_night"]
-)
+aligned_df["time_of_day"] = pd.cut(aligned_df["hour"],bins=[-1,5,11,16,21,23],labels=["night", "morning", "afternoon", "evening", "late_night"])
 
 #we observed peak time during evening
 aligned_df["is_peak_hr"]=aligned_df["hour"].isin([18, 19, 20, 21]).astype(int)

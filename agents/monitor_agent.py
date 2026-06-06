@@ -34,7 +34,7 @@ class MonitorAgent(BaseAgent):
 
 #make observe function of agent
     def observe(self, data: dict):   
-        #the monitor agent will receive data from pricing agent that is tariff decisiions, acn data from acn preprocessed datset and urban ev data from urban preprocessed dataset 
+        #the monitor agent will receive data from pricing agent that is tariff decisiions, acn data from acn processed datset and urban ev data from urban processed dataset 
 
         self.short_term_memory["tariff_decisions"] = data["tariff_decisions"]
         self.short_term_memory["acn_df"] = data["acn_df"]
@@ -53,7 +53,7 @@ class MonitorAgent(BaseAgent):
         total_sessions = decisions["total_volume"].sum()
         baseline_revenue = total_sessions * ACN_BASELINE_REVENUE
 
-        dynamic_revenue  = (decisions["bandit_tariff_kwh"] * ACN_AVG_KWH * decisions["total_volume"]).sum()
+        dynamic_revenue= (decisions["bandit_tariff_kwh"] * ACN_AVG_KWH * decisions["total_volume"]).sum()
 
         revenue_gain_pct = ((dynamic_revenue - baseline_revenue) / baseline_revenue * 100 if baseline_revenue > 0 else 0.0)
 
@@ -77,6 +77,61 @@ class MonitorAgent(BaseAgent):
         metrics["charger_util_after"] = round(util_after,4)
         metrics["charger_util_change"] = round(util_change, 4)
 
+        # zone specific util rates
+        surge_rows = decisions[decisions["pricing_action"] == "surge"].copy()
+        standard_rows = decisions[decisions["pricing_action"] == "standard"].copy()
+        discount_rows = decisions[decisions["pricing_action"] == "discount"].copy()
+
+        #for congested zones
+                   
+        if len(surge_rows) > 0:
+            metrics["surge_zones_count"]= len(surge_rows)
+            metrics["surge_util_before"]= round(surge_rows["predicted_util"].mean(), 4)
+            metrics["surge_util_after"] = round(surge_rows["simulated_util_after"].mean(), 4)
+            metrics["surge_util_change"] = round(metrics["surge_util_after"] - metrics["surge_util_before"], 4)
+            metrics["surge_mean_tariff"]= round(surge_rows["bandit_tariff_kwh"].mean(), 2)
+            metrics["surge_revenue_gain_pct"] = round(surge_rows["bandit_revenue_gain_pct"].mean(), 3)
+        else:
+            metrics["surge_zones_count"] = 0
+            metrics["surge_util_before"] = None
+            metrics["surge_util_after"] = None
+            metrics["surge_util_change"] = None
+            metrics["surge_mean_tariff"] = None
+            metrics["surge_revenue_gain_pct"] = None
+        
+
+        #for underutilized zones
+        if len(discount_rows) > 0:
+            metrics["discount_zones_count"] = len(discount_rows)
+            metrics["discount_util_before"] = round(discount_rows["predicted_util"].mean(), 4)
+            metrics["discount_util_after"] = round (discount_rows["simulated_util_after"].mean(), 4)
+            metrics["discount_util_change"] = round(metrics["discount_util_after"] - metrics["discount_util_before"], 4)
+            metrics["discount_mean_tariff"] = round(discount_rows["bandit_tariff_kwh"].mean(), 2)
+            metrics["discount_revenue_gain_pct"] = round(discount_rows["bandit_revenue_gain_pct"].mean(), 3)
+        else:
+            metrics["discount_zones_count"] = 0
+            metrics["discount_util_before"] = None
+            metrics["discount_util_after"] = None
+            metrics["discount_util_change"] = None
+            metrics["discount_mean_tariff"] = None
+            metrics["discount_revenue_gain_pct"] = None
+
+        # for standard zones
+        if len(standard_rows) > 0:
+            metrics["standard_zones_count"]= len(standard_rows)
+            metrics["standard_util_before"] = round(standard_rows["predicted_util"].mean(), 4)
+            metrics["standard_util_after"] = round(standard_rows["simulated_util_after"].mean(), 4)
+            metrics["standard_util_change"] = round(metrics["standard_util_after"] - metrics    ["standard_util_before"], 4)
+            metrics["standard_mean_tariff"] = round(standard_rows["bandit_tariff_kwh"].mean(), 2)
+            metrics["standard_revenue_gain_pct"] = round(standard_rows["bandit_revenue_gain_pct"].mean(), 3)
+        else:
+            metrics["standard_zones_count"] = 0
+            metrics["standard_util_before"] = None
+            metrics["standard_util_after"] = None
+            metrics["standard_util_change"] = None
+            metrics["standard_mean_tariff"] = None
+            metrics["standard_revenue_gain_pct"] = None
+
 # metric for off peak uplift
         
         # find rows where pricing zone is dicount
@@ -88,17 +143,16 @@ class MonitorAgent(BaseAgent):
             
             #since there is discount the number of sessions will increase
             # and the new number of sessions can be calculated using price elasticity and price drop
-            discount_rows["sessions_after"] = (discount_rows["total_volume"]
-                * (1 + (-PRICE_ELASTICITY) * discount_rows["price_drop_pct"] /100))
+            discount_rows["sessions_after"] = (discount_rows["total_volume"] * (1 + (-PRICE_ELASTICITY) * discount_rows["price_drop_pct"] /100))
             
-            sessions_after  = discount_rows["sessions_after"].sum()
+            sessions_after = discount_rows["sessions_after"].sum()
 
-            offpeak_uplift  = ((sessions_after - sessions_before) / sessions_before * 100 if sessions_before > 0 else 0.0)
+            offpeak_uplift= ((sessions_after - sessions_before) / sessions_before * 100 if sessions_before > 0 else 0.0)
 
         else:
             sessions_before = 0
-            sessions_after  = 0
-            offpeak_uplift  = 0.0  
+            sessions_after = 0
+            offpeak_uplift= 0.0  
 
         metrics["offpeak_sessions_before"] = round(sessions_before, 1)
         metrics["offpeak_sessions_after"] = round(sessions_after,1)
@@ -119,7 +173,7 @@ class MonitorAgent(BaseAgent):
         queue_reduction  = queue_before - queue_after
         wait_reduction_hr= queue_reduction * QUEUE_TO_MINUTES / 60 #in hours
 
-        metrics["queue_before"]  = round(queue_before,4)
+        metrics["queue_before"]= round(queue_before,4)
         metrics["queue_after"] = round(queue_after,4)
         metrics["wait_reduction_minutes"] = round(wait_reduction_hr * 60, 2) 
 
@@ -135,7 +189,7 @@ class MonitorAgent(BaseAgent):
         #metric for pricing efficiency score
 
         dynamic_total_kwh =decisions["total_volume"] * ACN_AVG_KWH
-        pricing_efficiency =dynamic_revenue/dynamic_total_kwh if dynamic_revenue>0 else 0
+        pricing_efficiency =dynamic_revenue/(dynamic_total_kwh.sum()) if (dynamic_total_kwh.sum())>0 else 0
 
         baseline_efficiency = 15.0
 
@@ -143,7 +197,7 @@ class MonitorAgent(BaseAgent):
         metrics["baseline_efficiency"]  = baseline_efficiency
         metrics["efficiency_improvement"] = round(pricing_efficiency - baseline_efficiency, 4)
 
-        self.short_term_memory["metrics"]   = metrics
+        self.short_term_memory["metrics"] = metrics
         self.short_term_memory["decisions"] = decisions  # has simulated util columns so save in short term memory
         return metrics
 
@@ -164,29 +218,55 @@ class MonitorAgent(BaseAgent):
         for _, row in decisions.iterrows():
             util_bin = row.get("util_bin", "medium")
             tariff = row.get("bandit_tariff_kwh", 15.0)
-            rev_gain = row.get("revenue_gain_pct", 0)
+            rev_gain = row.get("bandit_revenue_gain_pct", 0)
             util_before = row.get("predicted_util", 0.5)
             util_after= row.get("simulated_util_after", util_before)
  
-            congestion_improved = (util_before > 0.80 and util_after < util_before)
+            # now rewards to be given to the pricing agent will depend on three factore : 1) whether the revenue increased 
+            #2) whether congestion reduced in high util zones
+            #3) whether underutilization improved in low util zones
+            # so we will make weighted reward
 
+            # Revenue score captures how much did revenue improve vs baseline
+            if rev_gain > 10:
+                revenue_score =  1.0
+            elif rev_gain > 0:   
+                revenue_score =  0.5
+            elif rev_gain > -10: 
+                revenue_score =  0.0
+            elif rev_gain > -25: 
+                revenue_score = -0.5
+            else:               
+                revenue_score = -1.0
 
-            if rev_gain > 5 and congestion_improved:
-                reward = 1.0
-            elif rev_gain > 0:
-                reward = 0.5
-            elif rev_gain > -5:
-                reward = 0.2
-            elif rev_gain < -10 and not congestion_improved:
-                reward = -1.0
+             # Congestion score captures did surge pricing actually reduce high utilization applies only when station is congested (util > 0.80)
+            if util_before > 0.80:
+                congestion_score = (util_before - util_after) * 10 
+                congestion_score = np.clip(congestion_score, -1.0, 1.0)
             else:
-                reward = -0.5
+                congestion_score = 0.0
+
+            # Underutilization score captures that did discount pricing bring more sessions applies only when station is empty (util < 0.30)
+            
+            if util_before < 0.30:
+                underutil_score = (util_after - util_before) * 10
+                underutil_score = np.clip(underutil_score, -1.0, 1.0)
+            else:
+                underutil_score = 0.0
+
+            #final weighted reward      
+            if util_before < 0.30:
+                reward = (0.2 * revenue_score + 0.8 * underutil_score)
+            elif util_before > 0.80:
+                reward = (0.4 * revenue_score +0.6 * congestion_score)    
+            else:
+                reward = revenue_score          
 
             self.pricing_agent.update_q_value(util_bin, tariff, reward)
             rewards_sent += 1    
-
-            print(type(self.pricing_agent))
-
+      
+        self.pricing_agent.remember('q_values', self.pricing_agent.q_values)
+        self.pricing_agent.remember('action_counts', self.pricing_agent.action_counts)
 # now add the info to episode history
 
         metrics["episode"] = self.episode_count
@@ -203,7 +283,7 @@ class MonitorAgent(BaseAgent):
 
         self.log(
             action = "evaluate_episode",
-            input_data= f"episode={metrics['episode']}, decisions={len(decisions)}",output_data= (f"rev_gain={metrics['revenue_gain_pct']:+.2f}%, "
+            inp= f"episode={metrics['episode']}, decisions={len(decisions)}",out= (f"rev_gain={metrics['revenue_gain_pct']:+.2f}%, "
                 f"util_change={metrics['charger_util_change']:+.4f}, "
                 f"offpeak_uplift={metrics['offpeak_uplift_pct']:+.2f}%"),reward = metrics["revenue_gain_pct"])
         

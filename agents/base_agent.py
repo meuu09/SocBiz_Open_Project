@@ -62,4 +62,5 @@ class BaseAgent:
         self.episode_count += 1
         self.observe(data)
         self.think()
+        self.save_memory()
         return self.act()            

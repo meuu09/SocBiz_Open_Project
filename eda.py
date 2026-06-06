@@ -4,8 +4,8 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
-acn_preprocessed=pd.read_csv("final_datasets\\acn_preprocessed.csv")
-urbanev_preprocessed=pd.read_csv("final_datasets\\aligned_urbanev_data.csv")
+acn_processed=pd.read_csv("final_datasets\\acn_processed.csv")
+urbanev_processed=pd.read_csv("final_datasets\\aligned_urbanev_data.csv")
 
 #set colours for eda
 colors={"surge":"#E63946",
@@ -15,7 +15,7 @@ colors={"surge":"#E63946",
 
 # EDA for acn data
 #plot to see number of sessions by hour of day and see what are peak hours
-sessions_by_hrs=acn_preprocessed.groupby("hour").size().reset_index(name="sessions")
+sessions_by_hrs=acn_processed.groupby("hour").size().reset_index(name="sessions")
 
 print(sessions_by_hrs.head())
 
@@ -30,12 +30,10 @@ plt.show()
 
 #classifying hours 
 
-bar_colors=[
-    colors["surge"] if h in [14,15,16,17]
+bar_colors=[colors["surge"] if h in [14,15,16,17]
     else colors["discount"] if h in [4,5,6,7,8,9,10,11,12,13]
     else colors["standard"]
-    for h in sessions_by_hrs["hour"]
-]
+    for h in sessions_by_hrs["hour"]]
 surge_patch=patches.Patch(color="red",label="surge hours")
 discount_patch=patches.Patch(color="green",label="discount hours")
 standard_patch=patches.Patch(color="blue",label="standard hours")
@@ -52,7 +50,7 @@ plt.show()
 
 # plot to see number of sessions by days of week to see number of sessions in a particular day
 
-sessions_by_day=acn_preprocessed.groupby("day_of_week").size().reset_index(name="sessions")
+sessions_by_day=acn_processed.groupby("day_of_week").size().reset_index(name="sessions")
 day_names=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]
 sessions_by_day["day_name"]=sessions_by_day["day_of_week"].map(dict(enumerate(day_names)))
 
@@ -83,10 +81,10 @@ plt.show()
 
 # plot for showing kWh distribution
 plt.figure(figsize=(10,5))
-plt.hist(acn_preprocessed["kWhDelivered"].clip(0,60),bins=50,color=colors["standard"],edgecolor="white")
+plt.hist(acn_processed["kWhDelivered"].clip(0,60),bins=50,color=colors["standard"],edgecolor="white")
 
-plt.axvline(acn_preprocessed["kWhDelivered"].mean(),color=colors["surge"],linewidth=2,label="mean kWh",linestyle="--")
-plt.axvline(acn_preprocessed["kWhDelivered"].median(),color=colors["discount"],linewidth=2,label="median kWh",linestyle="--")
+plt.axvline(acn_processed["kWhDelivered"].mean(),color=colors["surge"],linewidth=2,label="mean kWh",linestyle="--")
+plt.axvline(acn_processed["kWhDelivered"].median(),color=colors["discount"],linewidth=2,label="median kWh",linestyle="--")
 plt.title("distribution of energy delivered per session")
 plt.xlabel("kwh delivered")
 plt.ylabel("number of sessions")
@@ -95,9 +93,9 @@ plt.show()
 
 
 # stacked bar plot to see charging vs idle hours
-print(acn_preprocessed["time_of_day"].isnull().sum())
+print(acn_processed["time_of_day"].isnull().sum())
 
-time_of_day_stats=acn_preprocessed.groupby("time_of_day",observed=True).agg(avg_charging=("charging_duration_hr","mean"),avg_idle = ("idle_time_hr", "mean")).reset_index()
+time_of_day_stats=acn_processed.groupby("time_of_day",observed=True).agg(avg_charging=("charging_duration_hr","mean"),avg_idle = ("idle_time_hr", "mean")).reset_index()
 
 time_of_day_order = ["night","morning","afternoon","evening","late_night"]
 time_of_day_stats["time_of_day"]=pd.Categorical(time_of_day_stats["time_of_day"],categories=time_of_day_order,ordered=True)
@@ -124,16 +122,10 @@ plt.show()
 # plot to see idle time distribution along with its opportunity costs
 fig, axe = plt.subplots(figsize=(10, 5))
 
-axe.hist(
-    acn_preprocessed["idle_time_hr"].clip(0, 12),
-    bins=50,
-    color=colors["surge"],
-    alpha=0.85,edgecolor="white"
-) 
+axe.hist(acn_processed["idle_time_hr"].clip(0, 12),bins=50,color=colors["surge"],alpha=0.85,edgecolor="white") 
 # shows number of sessions a particular number of idle hours
-axe.axvline(acn_preprocessed["idle_time_hr"].mean(), color="black", linestyle="--", linewidth=2,
-                label=f"Mean idle hrs")
-axe.set_title(f"Distribution of Idle Time per Session\n Total opportunity cost is {acn_preprocessed["idle_opportunity_cost"].sum():.2f} units")
+axe.axvline(acn_processed["idle_time_hr"].mean(), color="black", linestyle="--", linewidth=2,label=f"Mean idle hrs")
+axe.set_title(f"Distribution of Idle Time per Session\n Total opportunity cost is {acn_processed["idle_opportunity_cost"].sum():.2f} units")
 axe.set_xlabel("Idle Hours")
 axe.set_ylabel("Sessions")
 axe.legend()
@@ -141,11 +133,9 @@ plt.show()
 
 #revenue per session distribution at baseline price
 plt.figure(figsize=(10,5))
-plt.hist(acn_preprocessed["revenue_per_session"].clip(0,800),bins=50,color=colors["standard"],alpha=0.5,edgecolor="white")
-plt.axvline(acn_preprocessed["revenue_per_session"].mean(),color="black",linestyle="--" ,linewidth=2,
-           label="Mean revenue per session")
-plt.axvline(acn_preprocessed["revenue_per_session"].median(),color="red",linestyle="--" ,linewidth=2,
-           label="Median revenue per session")
+plt.hist(acn_processed["revenue_per_session"].clip(0,800),bins=50,color=colors["standard"],alpha=0.5,edgecolor="white")
+plt.axvline(acn_processed["revenue_per_session"].mean(),color="black",linestyle="--" ,linewidth=2,label="Mean revenue per session")
+plt.axvline(acn_processed["revenue_per_session"].median(),color="red",linestyle="--" ,linewidth=2,label="Median revenue per session")
 plt.title("revenue per session distribution")
 plt.xlabel("revenue")
 plt.ylabel("sessions")
@@ -153,7 +143,7 @@ plt.legend()
 plt.show()
 
 #plot to see pricing efficiency score at baseline price price by hour
-eff_by_hour=acn_preprocessed.groupby("hour")["revenue_per_kWh"].sum().reset_index(name="revenue_per_kWh")
+eff_by_hour=acn_processed.groupby("hour")["revenue_per_kWh"].sum().reset_index(name="revenue_per_kWh")
 
 
 plt.figure(figsize=(10,5))
@@ -166,8 +156,8 @@ plt.legend()
 plt.show()
 
 # make plot for price sensitivity distribution
-plt.hist(acn_preprocessed["price_sensitivity"].clip(0, 4), bins=40, edgecolor='white', alpha=0.85)
-plt.axvline(acn_preprocessed['price_sensitivity'].mean(), color="black",linestyle='--', linewidth=2,
+plt.hist(acn_processed["price_sensitivity"].clip(0, 4), bins=40, edgecolor='white', alpha=0.85)
+plt.axvline(acn_processed['price_sensitivity'].mean(), color="black",linestyle='--', linewidth=2,
 label=f"Mean price senstivity")
 plt.xlabel("Price Sensitivity Score")
 plt.ylabel("Sessions")
@@ -176,7 +166,7 @@ plt.legend()
 plt.show()
 
 #price sensitivity by time of day
-sensitivity_by_tod = acn_preprocessed.groupby('time_of_day', observed=True)['price_sensitivity'].mean()
+sensitivity_by_tod = acn_processed.groupby('time_of_day', observed=True)['price_sensitivity'].mean()
 tod_order = ['night','morning','afternoon','evening','late_night']
 sensitivity_by_tod = sensitivity_by_tod.reindex([t for t in tod_order if t in sensitivity_by_tod.index])
 plt.bar(tod_order, sensitivity_by_tod.values, edgecolor='white')
@@ -191,7 +181,7 @@ plt.show()
 # EDA for Urban ev data 
 
 # demand heatmap plot for each hour of each day of week
-pivot=urbanev_preprocessed.groupby(["hour","day_of_week"])["charger_util_rate"].mean().unstack()
+pivot=urbanev_processed.groupby(["hour","day_of_week"])["charger_util_rate"].mean().unstack()
 print(pivot.head())
 pivot.columns = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
 
@@ -204,8 +194,8 @@ plt.show()
 
 #heatmap to see surge and discount windows
 
-surge_pivot=urbanev_preprocessed.groupby(["hour","day_of_week"])["is_congested"].mean().unstack()
-discount_pivot = urbanev_preprocessed.groupby(["hour","day_of_week"])["is_underutilized"].mean().unstack()
+surge_pivot=urbanev_processed.groupby(["hour","day_of_week"])["is_congested"].mean().unstack()
+discount_pivot = urbanev_processed.groupby(["hour","day_of_week"])["is_underutilized"].mean().unstack()
 surge_pivot.columns = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
 discount_pivot.columns = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
  
@@ -223,7 +213,7 @@ plt.show()
 # plot for showing charger utilization distribution
 
 plt.figure(figsize=(10,5))
-n,bins,bars=plt.hist(urbanev_preprocessed["charger_util_rate"].clip(0,1), bins=50,edgecolor="white")
+n,bins,bars=plt.hist(urbanev_processed["charger_util_rate"].clip(0,1), bins=50,edgecolor="white")
 #color the bars/patches by zones
 for bar, left in zip(bars, bins[:-1]):
     if left < 0.30:
@@ -242,9 +232,9 @@ plt.legend()
 plt.show()
 
 # plot for seeing demand comparison in CBD (Central Business District) and suburbs
-cbd_hourly_util=urbanev_preprocessed[urbanev_preprocessed["CBD"]==1].groupby("hour")["charger_util_rate"].mean().reset_index(name="util_rate")
+cbd_hourly_util=urbanev_processed[urbanev_processed["CBD"]==1].groupby("hour")["charger_util_rate"].mean().reset_index(name="util_rate")
 
-suburb_hourly_util=urbanev_preprocessed[urbanev_preprocessed["CBD"]==0].groupby("hour")["charger_util_rate"].mean().reset_index(name="util_rate")
+suburb_hourly_util=urbanev_processed[urbanev_processed["CBD"]==0].groupby("hour")["charger_util_rate"].mean().reset_index(name="util_rate")
 print(cbd_hourly_util.head())
 
 plt.figure(figsize=(10,5))
@@ -264,11 +254,11 @@ plt.show()
 
 #plots to show difference between utilization rates and revenue between grids having synamic pricing and those having static pricing
 
-dynamic_hourly_util=urbanev_preprocessed[urbanev_preprocessed["dynamic_pricing"]==1].groupby("hour")["charger_util_rate"].mean()
-static_hourly_util=urbanev_preprocessed[urbanev_preprocessed["dynamic_pricing"]==0].groupby("hour")["charger_util_rate"].mean()
+dynamic_hourly_util=urbanev_processed[urbanev_processed["dynamic_pricing"]==1].groupby("hour")["charger_util_rate"].mean()
+static_hourly_util=urbanev_processed[urbanev_processed["dynamic_pricing"]==0].groupby("hour")["charger_util_rate"].mean()
 
-dynamic_revenue=urbanev_preprocessed[urbanev_preprocessed["dynamic_pricing"]==1].groupby("hour")["revenue_per_session"].mean()
-static_revenue=urbanev_preprocessed[urbanev_preprocessed["dynamic_pricing"]==0].groupby("hour")["revenue_per_session"].mean()
+dynamic_revenue=urbanev_processed[urbanev_processed["dynamic_pricing"]==1].groupby("hour")["revenue_per_session"].mean()
+static_revenue=urbanev_processed[urbanev_processed["dynamic_pricing"]==0].groupby("hour")["revenue_per_session"].mean()
 
 #for utilisation rates
 plt.figure(figsize=(10,5))
@@ -291,17 +281,11 @@ plt.legend()
 plt.show()
 
 # per hour revenue comparison between grids with dynamic and the ones with static pricing
-revenue_by_hour = urbanev_preprocessed.groupby("hour").agg(
-    dynamic_rev = ("actual_total_revenue","sum"),
-    base_rev = ("baseline_total_revenue","sum")
-).reset_index()
+revenue_by_hour = urbanev_processed.groupby("hour").agg(dynamic_rev = ("actual_total_revenue","sum"),base_rev = ("baseline_total_revenue","sum")).reset_index()
 print(revenue_by_hour.head())
-print(urbanev_preprocessed["actual_total_revenue"].sum())
-print(urbanev_preprocessed["baseline_total_revenue"].sum())
-revenue_by_hour["revenue_gain_perct"] = (
-    (revenue_by_hour["dynamic_rev"] - revenue_by_hour["base_rev"])
-    / revenue_by_hour["base_rev"].replace(0, np.nan) * 100
-).fillna(0)
+print(urbanev_processed["actual_total_revenue"].sum())
+print(urbanev_processed["baseline_total_revenue"].sum())
+revenue_by_hour["revenue_gain_perct"] = ((revenue_by_hour["dynamic_rev"] - revenue_by_hour["base_rev"])/ revenue_by_hour["base_rev"].replace(0, np.nan) * 100).fillna(0)
 
 
 #plot for absolute revenue
@@ -314,8 +298,8 @@ plt.xticks(range(24))
 plt.ylabel("revenue")
 plt.legend()
 plt.show()
-print(urbanev_preprocessed["is_congested"].sum())
-print(urbanev_preprocessed["is_underutilized"].sum())
+print(urbanev_processed["is_congested"].sum())
+print(urbanev_processed["is_underutilized"].sum())
 # we see revenue for dynamic pricing is less than for static pricing because the number of underutilized grids is more than congested ones
 #plot for %gain or loss per hour
 
@@ -333,11 +317,10 @@ plt.show()
 #box plots for analysing demand volatality that is utilisationn variability
 #for this the day is divided into three periods - peak , shoulder and off peak hours
 #plot to see peak,shoulder and off peak hours
-util_rate_by_hour = urbanev_preprocessed.groupby("hour")["charger_util_rate"].mean().reset_index()
+util_rate_by_hour = urbanev_processed.groupby("hour")["charger_util_rate"].mean().reset_index()
 
 plt.figure(figsize=(10,5))
-plt.plot(util_rate_by_hour["hour"],util_rate_by_hour["charger_util_rate"],marker="o",linewidth=2
-)
+plt.plot(util_rate_by_hour["hour"],util_rate_by_hour["charger_util_rate"],marker="o",linewidth=2)
 plt.title("Average Charger Utilization by Hour")
 plt.xlabel("Hour of Day")
 plt.ylabel("Mean Utilization Rate")
@@ -346,11 +329,8 @@ plt.legend()
 plt.show()
 
 # Average utilization for each hour
-util_by_hour = (
-    urbanev_preprocessed.groupby("hour")["charger_util_rate"].mean().reset_index(name="mean_util_rate"))
-
-hourly_sorted = util_by_hour.sort_values("mean_util_rate",ascending=False
-).reset_index(drop=True)
+util_by_hour = (urbanev_processed.groupby("hour")["charger_util_rate"].mean().reset_index(name="mean_util_rate"))
+hourly_sorted = util_by_hour.sort_values("mean_util_rate",ascending=False).reset_index(drop=True)
 print(hourly_sorted)
 
 #let us consider the hours with top 25% util rates as peak hours and those with lowermost 25% util rates as off peak hours
@@ -359,10 +339,7 @@ n = int(len(hourly_sorted) * 0.25)
 
 peak_hours = hourly_sorted.head(n)["hour"].tolist()
 offpeak_hours = hourly_sorted.tail(n)["hour"].tolist()
-shoulder_hours = [
-    h for h in hourly_sorted["hour"]
-    if h not in peak_hours + offpeak_hours
-]
+shoulder_hours = [h for h in hourly_sorted["hour"] if h not in peak_hours + offpeak_hours]
 
 print("Peak hours:", peak_hours)
 print("Off-peak hours:", offpeak_hours)
@@ -382,12 +359,12 @@ def get_period(hour):
     else:
         return "Off-Peak (10am–6pm)"
 
-urbanev_preprocessed["demand_period"]=urbanev_preprocessed["hour"].apply(get_period)
+urbanev_processed["demand_period"]=urbanev_processed["hour"].apply(get_period)
 
 period_order=["Peak (12am–7am)","Shoulder (7–10am, 7–11pm)","Off-Peak (10am–6pm)"]
 
 plt.figure(figsize=(10,5))
-period_data = [urbanev_preprocessed[urbanev_preprocessed["demand_period"]==p]["charger_util_rate"].dropna().values for p in period_order]
+period_data = [urbanev_processed[urbanev_processed["demand_period"]==p]["charger_util_rate"].dropna().values for p in period_order]
 boxplot=plt.boxplot(period_data,tick_labels=period_order,patch_artist=True)
 
 boxcolors=[colors["surge"],colors["standard"],colors["discount"]]
@@ -403,7 +380,7 @@ plt.show()
 
 #plot to see queue length proxy by hours
 
-queue_by_hour = urbanev_preprocessed.groupby("hour")["queue_length_proxy"].mean()
+queue_by_hour = urbanev_processed.groupby("hour")["queue_length_proxy"].mean()
 plt.figure(figsize=(10,5))
 bar_colors = [colors["surge"] if v > queue_by_hour.mean() else colors["standard"] for v in queue_by_hour.values]
 plt.bar(queue_by_hour.index, queue_by_hour.values, color=bar_colors, edgecolor="white")
@@ -418,7 +395,7 @@ plt.show()
 #plot to see range of price multiplier
 
 plt.figure(figsize=(10,5))
-n, bins, patches = plt.hist(urbanev_preprocessed["price"], bins=60,edgecolor="white")
+n, bins, patches = plt.hist(urbanev_processed["price"], bins=60,edgecolor="white")
 
 for patch, left in zip(patches, bins[:-1]):
     if left < 0.80:   
