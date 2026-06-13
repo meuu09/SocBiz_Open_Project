@@ -1,7 +1,7 @@
 {
   "agent": "demand_agent",
-  "episode_count": 45,
-  "last_updated": "2026-06-06T17:32:05.782875",
+  "episode_count": 15,
+  "last_updated": "2026-06-06T22:47:45.963933",
   "memory": {
     "last_metrics": {
       "RMSE": 0.0137,

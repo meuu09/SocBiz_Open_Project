@@ -99,7 +99,7 @@ class DemandAgent(BaseAgent):
             plt.title("Shap feature importance (Mean absolute impact on charger_util_rate prediction)")   
             plt.xlabel("mean SHAP values")
             plt.ylabel("features")
-            plt.savefig("plots/shap_feature_importance.png", dpi=150)
+            plt.savefig("plots/shap_feature_importance.png",bbox_inches="tight", dpi=150)
             plt.close()
 
         except ImportError:
